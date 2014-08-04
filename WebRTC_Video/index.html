@@ -1,0 +1,131 @@
+<html>
+<head>
+<script type="text/javascript" src="../js/jquery.js"></script>
+<script type="text/javascript" src="../js/peerAdapter.js"></script>
+<script type="text/javascript" src="../js/WebRTC.js"></script>
+<script type='text/javascript'
+	src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
+
+</head>
+<body>
+	<div id="rtc">
+		<input type='button' value='Create Offer' id='btnOffer' /> <input
+			type='button' value='Create Answer' id='btnAnswer' />
+	</div>
+	<div id="webgl" style='display: none'>
+		<video id="video1" width=320 height=240 autoplay></video>
+		<video id="video2" width=320 height=240 autoplay></video>
+	</div>
+	<script type="text/javascript">
+	"use strict";
+
+		window.RTC_Constraints = {
+		  mandatory: {
+		    OfferToReceiveAudio: true,
+		    OfferToReceiveVideo: true
+		  },
+		  optional:[ 
+		    { DtlsSrtpKeyAgreement: true }
+		  ]};
+
+		var PeerConOffer = null;
+		var PeerConAnswer = null;
+
+		var selfView = $("#video1").get(0);
+		var remoteView = $("#video2").get(0);
+
+		var myOffer = new Firebase(
+				'https://brickmii-signal.firebaseIO.com/webrtc/offer');
+		var myAnswer = new Firebase(
+				'https://brickmii-signal.firebaseIO.com/webrtc/answer');
+
+		function createOfferComplete(obj) {
+			Firebase.goOnline();
+			myOffer.set(null);
+			myAnswer.set(null);
+			myOffer.set(JSON.stringify(obj));
+			myAnswer.on('value', function(snapshot) {
+				if (snapshot.val()) {
+					acceptAnswer(JSON.parse(snapshot.val()));
+					myOffer.set(null);
+					myAnswer.set(null);
+					Firebase.goOffline()
+				}
+			});
+		}
+
+		function createAnswerComplete(obj) {
+			myAnswer.set(JSON.stringify(obj));
+			Firebase.goOffline();
+		}
+
+		function createOffer() {
+			if (PeerConOffer == null) {
+				PeerConOffer = new WebRTC_OfferConnection();
+			}
+			PeerConOffer.onsessionready = createOfferComplete;
+			PeerConOffer.onconnect = connected;
+			navigator.getUserMedia({
+				"audio" : true,
+				"video" : true
+			}, function(stream) {
+				selfView.src = URL.createObjectURL(stream);
+				selfView.volume = 0;
+				PeerConOffer.rtcPeerConnection.addStream(stream);
+				PeerConOffer.rtcPeerConnection.onaddstream = gotRemoteStream;
+				PeerConOffer.createOffer();
+			}, logErr);
+		}
+
+		//...
+		function gotRemoteStream(e) {
+			remoteView.src = URL.createObjectURL(e.stream);
+		}
+
+		function createAnswer(obj) {
+			if (PeerConAnswer == null) {
+				PeerConAnswer = new WebRTC_AnswerConnection();
+			}
+			PeerConAnswer.onsessionready = createAnswerComplete;
+			PeerConAnswer.onconnect = connected;
+			navigator.getUserMedia({
+				"audio" : true,
+				"video" : true
+			}, function(stream) {
+				selfView.src = URL.createObjectURL(stream);
+				PeerConAnswer.rtcPeerConnection.addStream(stream);
+				PeerConAnswer.rtcPeerConnection.onaddstream = gotRemoteStream;
+				PeerConAnswer.createAnswer(obj);
+			}, logErr);
+
+		}
+
+		function acceptAnswer(obj) {
+			PeerConOffer.acceptAnswer(obj);
+		}
+
+		function queryOffer() {
+			Firebase.goOnline();
+			myOffer.on('value', function(snapshot) {
+				if (snapshot.val()) {
+					createAnswer(JSON.parse(snapshot.val()));
+					myOffer.set(null);
+				}
+			});
+		}
+
+		function connected() {
+			$("#rtc").hide();
+			$("#webgl").show();
+			//setupGame(document.getElementById("canvas"),
+					//PeerConOffer ? PeerConOffer : PeerConAnswer);
+		}
+
+		$(function() {
+			Firebase.goOffline();
+			$('#btnOffer').click(createOffer);
+			$('#btnAnswer').click(queryOffer);
+		});
+	</script>
+</body>
+</html>
