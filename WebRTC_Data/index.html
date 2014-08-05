@@ -2,7 +2,8 @@
 <head>
 <script type="text/javascript" src="../js/jquery.js"></script>
 <script type="text/javascript" src="../js/peerAdapter.js"></script>
-<script type="text/javascript" src="game.js"></script>
+<script type="text/javascript" src="../js/glMatrix.js"></script>
+<script type="text/javascript" src="gameGL.js"></script>
 <script type="text/javascript" src="../js/WebRTC.js"></script>
 <script type='text/javascript' src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
 
@@ -86,6 +87,9 @@ $(function() {
   Firebase.goOffline();
   $('#btnOffer').click(createOffer);
   $('#btnAnswer').click(queryOffer);
+  
+  PeerConAnswer = new WebRTC_AnswerConnection();
+  connected();
 });
 </script>
 </body>
