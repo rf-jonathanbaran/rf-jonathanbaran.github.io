@@ -42,6 +42,40 @@ var vertext_shader_src = "precision mediump float;"
 		+ "  gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);"
 		+ "  vTextureCoord = aTextureCoord;" + "}";
 
+var Reader = {};
+
+Reader.getAJAX = function(address,data)
+{
+  var result = null;
+  if(data != null)
+     address+=data;
+  $.ajax({async: false,url: address, dataType: "text",success: function (data, textStatus) {result = data;}});
+  return result;
+}
+
+Reader.getJSON = function(address,data)
+  {
+    var ret;
+    var ajaxParam = {
+       'url': address+data,
+       'type':'GET',
+       'dataType': 'json',
+       'async': false
+       };
+    ajaxParam.success = function(data){ret = data;};
+    $.ajax(ajaxParam);
+
+    return ret;
+  }
+Reader.getImage = function(address,data,callback)
+{
+  var ret = new Image();
+  ret.src = address+data;
+  //alert(address+data);
+  ret.onload = function(){callback(ret)};
+  return ret;
+}
+
 function GL_Texture(linear) {
 	this.TEXTURE_ID = gl.createTexture();
 	this.src = "";
@@ -70,6 +104,7 @@ function GL_Texture(linear) {
 function initGL(canvas) {
 	try {
 		gl = canvas.getContext("experimental-webgl");
+		gl.enable(gl.DEPTH_TEST);
 		gl.viewportWidth = canvas.width;
 		gl.viewportHeight = canvas.height;
 	} catch (e) {
@@ -171,6 +206,8 @@ var ship = {
 	texture : [ [ 1, 1 ], [ 1, 0 ], [ 0, 1 ], [ 0, 1 ], [ 1, 0 ], [ 0, 0 ] ]
 };
 
+var sky = {};
+
 function initBuf(buffer, scale) {
 	var obj = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, obj);
@@ -188,7 +225,7 @@ function initBuf(buffer, scale) {
 }
 
 function initModels() {
-	world.pos = initBuf(world.vertex, 1);
+	world.pos = initBuf(world.vertex, 2);
 	world.uv = initBuf(world.texture, 1);
 	world.num_vertex = 6;
 
@@ -201,7 +238,19 @@ function initModels() {
 	img.src = "map.jpg";
 	img.onload = function() {
 		world.tex.load(this);
-	}
+	};
+	
+	sky.model = new ObjFile(Reader.getAJAX("skybox.obj", null));
+	sky.pos = initBuf([sky.model.vertex],1.75);
+	sky.num_vertex = sky.model.vertex.length/3;
+	sky.uv = initBuf([sky.model.texture],1);
+	sky.tex = new GL_Texture(false);
+	var skyTex = new Image();
+	skyTex.src = "Morning.png";
+	skyTex.onload = function() {
+		sky.tex.load(this);
+	};
+		
 }
 
 function drawMap() {
@@ -219,8 +268,26 @@ function drawMap() {
 	gl.vertexAttribPointer(shaderProgram.vertexTextureAttribute, 2, gl.FLOAT,
 			false, 0, 0);
 
-	world.tex.bind(shaderProgram.textureSampler, 0, 0);
+	world.tex.bind(shaderProgram.textureSampler, gl.TEXTURE0, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, world.num_vertex);
+	
+	mat4.identity(mvMatrix);
+	mat4.rotate(mvMatrix, mvMatrix, 90 / 180 * Math.PI, [ 1, 0, 0 ]);
+	mat4.translate(mvMatrix, mvMatrix, [ 0, 0, -.125 ]);
+	mat4.multiply(mvMatrix, camera, mvMatrix);
+	
+	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, sky.pos);
+	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 3, gl.FLOAT,
+			false, 0, 0);
+
+	gl.bindBuffer(gl.ARRAY_BUFFER, sky.uv);
+	gl.vertexAttribPointer(shaderProgram.vertexTextureAttribute, 2, gl.FLOAT,
+			false, 0, 0);
+
+	sky.tex.bind(shaderProgram.textureSampler, gl.TEXTURE0, 0);
+	gl.drawArrays(gl.TRIANGLES, 0, sky.num_vertex);
 }
 
 function drawObj(dat) {
@@ -229,6 +296,7 @@ function drawObj(dat) {
 	mat4.rotate(mvMatrix, mvMatrix, (dat[2]-90) / 180 * Math.PI, [ 0, 0, 1 ]);
 	mat4.multiply(mvMatrix, camera, mvMatrix);
 
+	world.tex.bind(shaderProgram.textureSampler, gl.TEXTURE0, 0);
 	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, ship.pos);

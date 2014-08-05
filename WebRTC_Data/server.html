@@ -6,6 +6,7 @@
 <script type="text/javascript" src="../js/WebRTC.js"></script>
 <script type="text/javascript" src="../js/glMatrix.js"></script>
 <script type="text/javascript" src="../js/peerAdapter.js"></script>
+<script type="text/javascript" src="obj.js"></script>
 <script type="text/javascript" src="Server.js"></script>
 <script type="text/javascript" src="gameGL.js"></script>
 
@@ -46,7 +47,9 @@
 		onMessage : {
 			enumerable : true,
 			value : function(ref, arraybuffer) {
-				this.state[ref].data = new Float32Array(arraybuffer);
+				if (this.state[ref]) {
+					this.state[ref].data = new Float32Array(arraybuffer);
+				}
 				for ( var i in this.state) {
 					if (i != ref) {
 						this.sendMessage(i, arraybuffer);
