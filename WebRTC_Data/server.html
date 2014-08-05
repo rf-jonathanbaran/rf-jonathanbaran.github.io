@@ -1,28 +1,134 @@
 <html>
 <head>
-<script type='text/javascript' src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
+<script type='text/javascript'
+	src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
 <script type="text/javascript" src="../js/jquery.js"></script>
 <script type="text/javascript" src="../js/WebRTC.js"></script>
+<script type="text/javascript" src="../js/glMatrix.js"></script>
 <script type="text/javascript" src="../js/peerAdapter.js"></script>
-<script type="text/javascript" src="GameServer.js"></script>
 <script type="text/javascript" src="Server.js"></script>
+<script type="text/javascript" src="gameGL.js"></script>
 
 <script type="text/javascript" src="FireBaseURL.js"></script>
 
 <script type="text/javascript">
- "use strict";
+	"use strict";
+	var Hackathon = {};
+	function GameServer() {
+		this.server = new HackathonServer(FIREBASE_URL.SERVER);
+		this.server.onusermessage = this.onMessage.bind(this);
+		this.server.onuserconnected = this.onUserConnected.bind(this);
+		this.server.onuserdisconnected = this.onDisconnect.bind(this);
+	}
+	GameServer.prototype = Object.create(Object.prototype, {
 
+		state : {
+			writable : true,
+			enumerable : true,
+			value : {}
+		},
 
- var Hackathon = Hackathon || {};
- $(function() {
-    Hackathon.server = new GameServer();
-  })
+		onUserConnected : {
+			enumerable : true,
+			value : function(ref) {
+				this.state[ref] = {
+					connected : true
+				};
+			}
+		},
+
+		onDisconnect : {
+			enumerable : true,
+			value : function(ref) {
+				delete this.state[ref];
+			}
+		},
+		onMessage : {
+			enumerable : true,
+			value : function(ref, arraybuffer) {
+				this.state[ref].data = new Float32Array(arraybuffer);
+				for ( var i in this.state) {
+					if (i != ref) {
+						this.sendMessage(i, arraybuffer);
+					}
+				}
+			}
+		},
+		sendMessage : {
+			enumerable : true,
+			value : function(ref, arraybuffer) {
+				this.server.sendMessage(ref, arraybuffer);
+			}
+		}
+	});
+
+	function drawPlayers(players) {
+
+		var p1XY = null;
+		var p2XY = null;
+		if (players.length > 0) {
+			p1XY = players[0];
+		}
+		if (players.length > 1) {
+			p2XY = players[1];
+		}
+
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		mat4.perspective(pMatrix, 45, 1, 0.01, 300.0);
+		gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+		if (p1XY) {
+			gl.viewport(0, 0, 512, 512);
+
+			var dX = Math.cos(p1XY[2] / 180 * Math.PI) * 0.16;
+			var dY = Math.sin(p1XY[2] / 180 * Math.PI) * 0.16;
+
+			mat4.lookAt(camera, [ p1XY[0] - dX, p1XY[1] - dY, .05 ], [
+					p1XY[0] + dX, p1XY[1] + dY, 0 ], [ 0, 0, 1 ])
+			drawMap();
+			drawObj(p1XY);
+			if (p2XY)
+				drawObj(p2XY);
+		}
+		if (p2XY) {
+			p1XY = players[1];
+			p2XY = players[0];
+			gl.viewport(512, 0, 512, 512);
+
+			var dX = Math.cos(p1XY[2] / 180 * Math.PI) * 0.16;
+			var dY = Math.sin(p1XY[2] / 180 * Math.PI) * 0.16;
+
+			mat4.lookAt(camera, [ p1XY[0] - dX, p1XY[1] - dY, .05 ], [
+					p1XY[0] + dX, p1XY[1] + dY, 0 ], [ 0, 0, 1 ])
+			drawMap();
+			drawObj(p1XY);
+			drawObj(p2XY);
+		}
+	}
+
+	function gameDraw(t) {
+		var players = [];
+		var clients = Hackathon.server.state;
+		for ( var i in clients) {
+			if (clients[i].data) {
+				players.push(clients[i].data);
+			}
+		}
+		drawPlayers(players);
+		requestAnimationFrame(gameDraw);
+	}
+	$(function() {
+		canvas = document.getElementById("canvas");
+		initGL(canvas);
+		initShaders();
+		initModels();
+		Hackathon.server = new GameServer();
+		requestAnimationFrame(gameDraw);
+	})
 </script>
 </head>
 
 <body>
-
-
-
+	<canvas id="canvas" width=1024 height=512
+		style="background: none repeat scroll 0% 0% #003;"></canvas>
 </body>
 </html>
