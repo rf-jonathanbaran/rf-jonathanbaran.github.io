@@ -3,6 +3,8 @@
 <script type="text/javascript" src="../js/jquery.js"></script>
 <script type="text/javascript" src="../js/peerAdapter.js"></script>
 <script type="text/javascript" src="../js/glMatrix.js"></script>
+<script type="text/javascript" src="FireBaseURL.js"></script>
+<script type="text/javascript" src="Client.js"></script>
 <script type="text/javascript" src="gameGL.js"></script>
 <script type="text/javascript" src="../js/WebRTC.js"></script>
 <script type='text/javascript' src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
@@ -10,86 +12,43 @@
 </head>
 <body>
 	<div id="rtc">
-		<input type='button' value='Create Offer' id='btnOffer' /> <input
-			type='button' value='Create Answer' id='btnAnswer' />
+		<input type='button' value='Connect' id='btnConnect' />
 	</div>
 	<div id="webgl" style='display: none'>
 		<canvas id="canvas" width=640 height=480 style='background: #000033'></canvas>
 	</div>
 <script type="text/javascript">
 "use strict";
-var PeerConOffer = null;
-var PeerConAnswer = null;
 
-var myOffer = new Firebase('https://brickmii-signal.firebaseIO.com/webrtc/offer');
-var myAnswer = new Firebase('https://brickmii-signal.firebaseIO.com/webrtc/answer');
+var client;
 
-
-function createOfferComplete(obj) {
-  Firebase.goOnline();
-  myOffer.set(null);
-  myAnswer.set(null);
-  myOffer.set(JSON.stringify(obj));
-  myAnswer.on('value', function(snapshot) {
-    if(snapshot.val()) {
-      acceptAnswer(JSON.parse(snapshot.val()));
-      myOffer.set(null);
-      myAnswer.set(null);
-      Firebase.goOffline()
-    }
-   });
+function GameClient() {
+  var client = this.client = new HackathonClient(FIREBASE_URL.SERVER);
+  client.ondisconnected = this.onDisconnect.bind(this);
+  client.onconnected = this.onConnect.bind(this);
 }
+GameClient.prototype = Object.create(Object.prototype, {
 
-function createAnswerComplete(obj) {
-  myAnswer.set(JSON.stringify(obj));
-  Firebase.goOffline();
-}
-
-function createOffer() {
-  if(PeerConOffer == null) {
-    PeerConOffer = new WebRTC_OfferConnection();
-  }
-  PeerConOffer.onsessionready = createOfferComplete;
-  PeerConOffer.onconnect = connected;
-  PeerConOffer.createOffer();
-}
-
-function createAnswer(obj) {
-  if(PeerConAnswer == null) {
-    PeerConAnswer = new WebRTC_AnswerConnection();
-  }
-  PeerConAnswer.onsessionready = createAnswerComplete;
-  PeerConAnswer.onconnect = connected;
-  PeerConAnswer.createAnswer(obj);
-}
-
-function acceptAnswer(obj) {
-  PeerConOffer.acceptAnswer(obj);
-}
-
-function queryOffer() {
-  Firebase.goOnline();
-  myOffer.on('value', function(snapshot) {
-    if(snapshot.val()){
-      createAnswer(JSON.parse(snapshot.val()));
-      myOffer.set(null);
-    }
-  });
-}
-
-function connected() {
+  onConnect : {value: function(){
 	$("#rtc").hide();
 	$("#webgl").show();
-	setupGame(document.getElementById("canvas"), PeerConOffer?PeerConOffer:PeerConAnswer);
+	setupGame(document.getElementById("canvas"), this.client);
+    }
+  },
+
+  onDisconnect :{enumerable: true, value: function(){
+      alert("The Server has Disconnected\nPlease refresh the page once it has restarted.");
+    }
+  }
+});
+
+function connect() {
+	client = new GameClient();
 }
 
 $(function() {
   Firebase.goOffline();
-  $('#btnOffer').click(createOffer);
-  $('#btnAnswer').click(queryOffer);
-  
-  //PeerConAnswer = new WebRTC_AnswerConnection();
-  //connected();
+  $('#btnConnect').click(connect);
 });
 </script>
 </body>

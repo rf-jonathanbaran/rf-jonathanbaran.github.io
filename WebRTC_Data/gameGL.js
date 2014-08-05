@@ -284,6 +284,6 @@ function setupGame(c, rtc) {
 	initShaders();
 	initModels();
 	webRTC = rtc;
-	webRTC.onMessage = gameOnMessage;
+	webRTC.onmessage = gameOnMessage;
 	requestAnimationFrame(gameDraw);
 }
