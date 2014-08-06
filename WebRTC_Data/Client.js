@@ -2,6 +2,7 @@
 
 function HackathonClient(firebase_url) {
   if(firebase_url) {
+	this.firebase_url = firebase_url;
     this.connectToServer(firebase_url);
   }
 }
@@ -18,7 +19,7 @@ HackathonClient.prototype = Object.create(Object.prototype, {
   },
 
   connectToServer : {enumerable: true, value: function (firebase_url) {
-
+      Firebase.goOnline( );
       var UUID = localStorage.HackathonClient_UUID || this.createGUID();
       localStorage.HackathonClient_UUID = UUID;
       var ref = new Firebase(firebase_url+"/"+UUID+"/");
@@ -33,7 +34,7 @@ HackathonClient.prototype = Object.create(Object.prototype, {
             this.connection.onconnect = function() {
               this.onConnected();
             }.bind(this);
-            this.connection.ondisconnected = function() {
+            this.connection.ondisconnect = function() {
               this.onDisconnected();
             }.bind(this);
             this.connection.onMessage = function(arraybuffer) {
@@ -50,7 +51,11 @@ HackathonClient.prototype = Object.create(Object.prototype, {
       this.connection.createOffer();
     }
   },
-
+  
+  reconnect: {value: function() {
+	  this.connectToServer(this.firebase_url);
+  }},
+  
   sendMessage: { value: function (arraybuffer) {
       this.connection.rtcChannel.send(arraybuffer);
     }
@@ -73,7 +78,7 @@ HackathonClient.prototype = Object.create(Object.prototype, {
 
   onConnected : {enumerable: true, value: function () {
       console.log("Client Connected");
-      this.onconnected()
+      this.onconnected();
     }
   },
 
