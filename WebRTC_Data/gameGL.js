@@ -44,36 +44,44 @@ var vertext_shader_src = "precision mediump float;"
 
 var Reader = {};
 
-Reader.getAJAX = function(address,data)
-{
-  var result = null;
-  if(data != null)
-     address+=data;
-  $.ajax({async: false,url: address, dataType: "text",success: function (data, textStatus) {result = data;}});
-  return result;
+Reader.getAJAX = function(address, data) {
+	var result = null;
+	if (data != null)
+		address += data;
+	$.ajax({
+		async : false,
+		url : address,
+		dataType : "text",
+		success : function(data, textStatus) {
+			result = data;
+		}
+	});
+	return result;
 }
 
-Reader.getJSON = function(address,data)
-  {
-    var ret;
-    var ajaxParam = {
-       'url': address+data,
-       'type':'GET',
-       'dataType': 'json',
-       'async': false
-       };
-    ajaxParam.success = function(data){ret = data;};
-    $.ajax(ajaxParam);
+Reader.getJSON = function(address, data) {
+	var ret;
+	var ajaxParam = {
+		'url' : address + data,
+		'type' : 'GET',
+		'dataType' : 'json',
+		'async' : false
+	};
+	ajaxParam.success = function(data) {
+		ret = data;
+	};
+	$.ajax(ajaxParam);
 
-    return ret;
-  }
-Reader.getImage = function(address,data,callback)
-{
-  var ret = new Image();
-  ret.src = address+data;
-  //alert(address+data);
-  ret.onload = function(){callback(ret)};
-  return ret;
+	return ret;
+}
+Reader.getImage = function(address, data, callback) {
+	var ret = new Image();
+	ret.src = address + data;
+	// alert(address+data);
+	ret.onload = function() {
+		callback(ret)
+	};
+	return ret;
 }
 
 function GL_Texture(linear) {
@@ -223,11 +231,7 @@ var world = {
 			[ 1, -1, 0 ], [ -1, -1, 0 ] ],
 	texture : [ [ 1, 1 ], [ 1, 0 ], [ 0, 1 ], [ 0, 1 ], [ 1, 0 ], [ 0, 0 ] ]
 };
-var ship = {
-	vertex : [ [ 0, 1, 0 ], [ 1, -1, 0 ], [ 0, -0.75, .125 ], [ 0, 1, 0 ],
-			[ 0, -0.75, .125 ], [ -1, -1, 0 ] ],
-	texture : [ [ 1, 1 ], [ 1, 0 ], [ 0, 1 ], [ 0, 1 ], [ 1, 0 ], [ 0, 0 ] ]
-};
+var ship = {};
 
 var sky = {};
 
@@ -251,11 +255,7 @@ function initModels() {
 	world.pos = initBuf(world.vertex, 2);
 	world.uv = initBuf(world.texture, 1);
 	world.num_vertex = 6;
-
-	ship.pos = initBuf(ship.vertex, .04);
-	ship.uv = initBuf(ship.texture, .1);
-	ship.num_vertex = 6;
-
+	
 	world.tex = new GL_Texture(false);
 	var img = new Image();
 	img.src = "map.jpg";
@@ -263,17 +263,23 @@ function initModels() {
 		world.tex.load(this);
 	};
 	
-	sky.model = new ObjFile(Reader.getAJAX("skybox.obj", null));
-	sky.pos = initBuf([sky.model.vertex],1.75);
-	sky.num_vertex = sky.model.vertex.length/3;
-	sky.uv = initBuf([sky.model.texture],1);
-	sky.tex = new GL_Texture(false);
-	var skyTex = new Image();
-	skyTex.src = "Morning.png";
-	skyTex.onload = function() {
-		sky.tex.load(this);
+	ship = loadModel("ship.obj", "ship_tex.png", 0.02);
+	sky = loadModel("skybox.obj", "Morning.jpg", 1.75);
+}
+
+function loadModel(obj, img_src, scale) {
+	var response = {};
+	response.model = new ObjFile(Reader.getAJAX(obj, null));
+	response.pos = initBuf([ response.model.vertex ], scale);
+	response.num_vertex = response.model.vertex.length / 3;
+	response.uv = initBuf([ response.model.texture ], 1);
+	response.tex = new GL_Texture(false);
+	var tex = new Image();
+	tex.src = img_src;
+	tex.onload = function() {
+		response.tex.load(this);
 	};
-		
+	return response;
 }
 
 function drawMap() {
@@ -293,12 +299,12 @@ function drawMap() {
 
 	world.tex.bind(shaderProgram.textureSampler, gl.TEXTURE0, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, world.num_vertex);
-	
+
 	mat4.identity(mvMatrix);
 	mat4.rotate(mvMatrix, mvMatrix, 90 / 180 * Math.PI, [ 1, 0, 0 ]);
 	mat4.translate(mvMatrix, mvMatrix, [ 0, 0, -.125 ]);
 	mat4.multiply(mvMatrix, camera, mvMatrix);
-	
+
 	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, sky.pos);
@@ -316,7 +322,7 @@ function drawMap() {
 function drawObj(dat) {
 	mat4.identity(mvMatrix);
 	mat4.translate(mvMatrix, mvMatrix, [ dat[0], dat[1], 0.00 ]);
-	mat4.rotate(mvMatrix, mvMatrix, (dat[2]-90) / 180 * Math.PI, [ 0, 0, 1 ]);
+	mat4.rotate(mvMatrix, mvMatrix, (dat[2] - 90) / 180 * Math.PI, [ 0, 0, 1 ]);
 	mat4.multiply(mvMatrix, camera, mvMatrix);
 
 	world.tex.bind(shaderProgram.textureSampler, gl.TEXTURE0, 0);
@@ -329,7 +335,7 @@ function drawObj(dat) {
 	gl.bindBuffer(gl.ARRAY_BUFFER, ship.uv);
 	gl.vertexAttribPointer(shaderProgram.vertexTextureAttribute, 2, gl.FLOAT,
 			false, 0, 0);
-
+	ship.tex.bind(shaderProgram.textureSampler, gl.TEXTURE0, 0);
 	gl.drawArrays(gl.TRIANGLES, 0, ship.num_vertex);
 }
 
