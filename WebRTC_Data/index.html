@@ -1,9 +1,39 @@
 <html>
 <head>
-<meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+<meta name="viewport"
+	content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
 <style>
-body {margin: 0px;padding:0px}
-canvas, #fullscreen {width:100%;height:100%}
+body {
+	margin: 0px;
+	padding: 0px
+}
+
+#btnConnect {
+	margin: 40px auto;
+	width: 300px;
+	height: 44px;
+	text-align: center;
+	color: black;
+	line-height: 44px;
+	background-color: #999999;
+	border: 1px solid black;
+	background-color: #999999;
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
+#btnConnect:active {
+	background-color: #777777;
+}
+
+canvas,#fullscreen {
+	width: 100%;
+	height: 100%
+}
 </style>
 <script type="text/javascript" src="../js/jquery.js"></script>
 <script type="text/javascript" src="../js/peerAdapter.js"></script>
@@ -13,88 +43,94 @@ canvas, #fullscreen {width:100%;height:100%}
 <script type="text/javascript" src="Client.js"></script>
 <script type="text/javascript" src="gameGL.js"></script>
 <script type="text/javascript" src="../js/WebRTC.js"></script>
-<script type='text/javascript' src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
+<script type='text/javascript'
+	src='https://cdn.firebase.com/js/client/1.0.6/firebase.js'></script>
 
 </head>
 <body>
 	<div id="rtc">
-		<input type='button' value='Connect' id='btnConnect' />
+		<div id='btnConnect'>CONNECT</div>
 	</div>
 	<div id="webgl" style='display: none'>
-	<div id="fullscreen">
-		<canvas id="canvas" width=640 height=480 style='background: #000033'></canvas>
+		<div id="fullscreen">
+			<canvas id="canvas" width=640 height=480 style='background: #000033'></canvas>
+		</div>
 	</div>
-	</div>
-	<div id="log"></div>
-<script type="text/javascript">
-"use strict";
-window.gamepads = {};
+	<script type="text/javascript">
+		"use strict";
+		window.gamepads = {};
 
-function gamepadHandler(event, connecting) {
-  var gamepad = event.gamepad;
-  // Note:
-  // gamepad === navigator.getGamepads()[gamepad.index]
-  if (connecting) {
-	  window.gamepads[gamepad.index] = gamepad;
-  } else {
-    delete window.gamepads[gamepad.index];
-  }
-}
+		function gamepadHandler(event, connecting) {
+			var gamepad = event.gamepad;
+			// Note:
+			// gamepad === navigator.getGamepads()[gamepad.index]
+			if (connecting) {
+				window.gamepads[gamepad.index] = gamepad;
+			} else {
+				delete window.gamepads[gamepad.index];
+			}
+		}
 
-window.addEventListener("gamepadconnected", function(e) { gamepadHandler(e, true); }, false);
-window.addEventListener("gamepaddisconnected", function(e) { gamepadHandler(e, false); }, false);
+		window.addEventListener("gamepadconnected", function(e) {
+			gamepadHandler(e, true);
+		}, false);
+		window.addEventListener("gamepaddisconnected", function(e) {
+			gamepadHandler(e, false);
+		}, false);
 
-var client;
+		var client;
 
-function GameClient() {
-  var client = this.client = new HackathonClient(FIREBASE_URL.SERVER);
-  client.ondisconnected = client.reconnect;
-  client.onconnected = this.onConnect.bind(this);
-}
-GameClient.prototype = Object.create(Object.prototype, {
+		function GameClient() {
+			var client = this.client = new HackathonClient(FIREBASE_URL.SERVER);
+			client.ondisconnected = client.reconnect;
+			client.onconnected = this.onConnect.bind(this);
+		}
+		GameClient.prototype = Object.create(Object.prototype, {
 
-  onConnect : {value: function(){
-	$("#rtc").hide();
-	$("#webgl").show();
-	setupGame(document.getElementById("canvas"), this.client);
-    }
-  }
-});
+			onConnect : {
+				value : function() {
+					$("#rtc").hide();
+					$("#webgl").show();
+					setupGame(document.getElementById("canvas"), this.client);
+				}
+			}
+		});
 
-function connect() {
-  if(isDocumentInFullScreenMode()) {
-    client = new GameClient();
-  } 
-  var canvas = document.getElementById("canvas");
-  canvas.width = 1024;
-  canvas.height = $(document).height()/$(document).width() * canvas.width;
-}
-function isDocumentInFullScreenMode() {
-  return (
-    document.fullscreenElement ||
-    document.webkitFullscreenElement ||
-    document.mozFullScreenElement ||
-    document.msFullscreenElement
-);                   							
-}
-function goFullScreen() {
-  var elem = document.getElementById("fullscreen");
-  if (elem.requestFullscreen) {
-    elem.requestFullscreen();
-  } else if (elem.msRequestFullscreen) {
-    elem.msRequestFullscreen();
-  } else if (elem.mozRequestFullScreen) {
-    elem.mozRequestFullScreen();
-  } else if (elem.webkitRequestFullscreen) {
-    elem.webkitRequestFullscreen();
-  }
-}
+		function connect() {
+			if (isDocumentInFullScreenMode()) {
+				client = new GameClient();
+			}
+			var canvas = document.getElementById("canvas");
+			canvas.width = 1024;
+			canvas.height = $(document).height() / $(document).width()
+					* canvas.width;
+		}
+		function isDocumentInFullScreenMode() {
+			return (document.fullscreenElement
+					|| document.webkitFullscreenElement
+					|| document.mozFullScreenElement || document.msFullscreenElement);
+		}
+		function goFullScreen() {
+			var elem = document.getElementById("fullscreen");
+			if (elem.requestFullscreen) {
+				elem.requestFullscreen();
+			} else if (elem.msRequestFullscreen) {
+				elem.msRequestFullscreen();
+			} else if (elem.mozRequestFullScreen) {
+				elem.mozRequestFullScreen();
+			} else if (elem.webkitRequestFullscreen) {
+				elem.webkitRequestFullscreen();
+			}
+		}
 
-$(function() {
-  Firebase.goOffline();
-  $(document).bind("fullscreenchange webkitfullscreenchange mozfullscreenchange",connect)
-  $('#btnConnect').click(goFullScreen);
-});
-</script>
+		$(function() {
+			Firebase.goOffline();
+			$(document)
+					.bind(
+							"fullscreenchange webkitfullscreenchange mozfullscreenchange",
+							connect)
+			$('#btnConnect').click(goFullScreen);
+		});
+	</script>
 </body>
 </html>
