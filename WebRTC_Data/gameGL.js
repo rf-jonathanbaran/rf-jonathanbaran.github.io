@@ -163,22 +163,45 @@ function gameKeyUp(e) {
 function updateLogic(deltaT) {
 	var updatedPos = false;
 	var updatedRot = false;
-	if (keyboardBuffer[KEY_A]) {
-		p1XY[2] += 2;
-		updatedRot = true;
-	}
-	if (keyboardBuffer[KEY_D]) {
-		p1XY[2] -= 2;
-		updatedRot = true;
-	}
 	var velocity = 0;
-	if (keyboardBuffer[KEY_W]) {
-		velocity += .750;
-		updatedPos = true;
+	var gamePad = null;
+	for ( var v in window.gamepads) {
+		gamePad = window.gamepads[v];
 	}
-	if (keyboardBuffer[KEY_S]) {
-		velocity -= .750;
-		updatedPos = true;
+	if (!gamePad) {
+		if (keyboardBuffer[KEY_A]) {
+			p1XY[2] += 2;
+			updatedRot = true;
+		}
+		if (keyboardBuffer[KEY_D]) {
+			p1XY[2] -= 2;
+			updatedRot = true;
+		}
+		if (keyboardBuffer[KEY_W]) {
+			velocity += .750;
+			updatedPos = true;
+		}
+		if (keyboardBuffer[KEY_S]) {
+			velocity -= .750;
+			updatedPos = true;
+		}
+	} else {
+		var axisX = 0;
+		if(gamePad.axes && gamePad.axes[0]) {
+			axisX = gamePad.axes[0];
+		}
+		var axisY = 0;
+		if(gamePad.axes && gamePad.axes[1]) {
+			axisY = gamePad.axes[1];
+		}
+		if (Math.abs(axisX) > 0.1) {
+			p1XY[2] -= 2 * axisX;
+			updatedRot = true;
+		}
+		if (Math.abs(axisY) > 0.1) {
+			velocity += .750 * -axisY;
+			updatedPos = true;
+		}
 	}
 	var dX = Math.cos(p1XY[2] / 180 * Math.PI);
 	var dY = Math.sin(p1XY[2] / 180 * Math.PI);
