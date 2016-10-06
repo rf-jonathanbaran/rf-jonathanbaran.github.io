@@ -1,0 +1,100 @@
+<html>
+<head>
+<style type="text/css">
+div.segment {float:left}
+div.segment > textarea {width:320px;height:240px;}
+</style>
+<script type="text/javascript" src="base64.js"></script>
+<script type="text/javascript" src="../js/jquery.js"></script>
+<script type="text/javascript">
+  var string_extract = [];
+
+  function extractStrings( XML ) {
+    string_extract = [];
+    var parser=new DOMParser();
+    var xmlDoc=parser.parseFromString(XML,"text/xml");
+    recurseChildren(xmlDoc.childNodes[0]);
+    $("#strings").val(string_extract.join("\n\n"));
+  }
+
+  function recurseChildren(node) {
+    if(node.localName == null) return;
+    var type  = node.localName;
+
+    key = node.getAttribute("key");
+    if(key == "IBUIText") {
+       console.log(node);
+       var type = node.getAttribute("type");
+       var text = node.textContent;
+       if(type == "base64-UTF8") {
+          text = text.replace(/[\n\r]+/g,'');
+          var c = text.length % 3;
+         
+          // add a right zero pad to make this string a multiple of 3 characters
+          if (c > 0) { 
+            for (; c < 3; c++) { 
+              text += '=';
+            }
+          }
+
+          text = Base64.decode(text);
+       }
+       string_extract.push(text);
+    }
+
+    for(var i = 0; i<node.childNodes.length; i++) {
+      recurseChildren(node.childNodes[i]);
+    }
+  }
+
+  function ignoreDrag(e) {
+    e.originalEvent.stopPropagation();
+    e.originalEvent.preventDefault();
+    e.originalEvent.dataTransfer.dropEffect = 'copy';
+  }
+
+  function drop (e) {
+  
+    ignoreDrag(e);
+    var dt = e.originalEvent.dataTransfer;
+    if(dt && dt.items) {
+      var items = dt.files;
+      for(var i=0;i<items.length;i++) {
+        var myFile = items[0];
+        var reader = new FileReader();
+        filename = myFile.name;
+        reader.onload = function(e){
+            $("#xml").val(e.target.result);
+        extractStrings($("#xml").val());
+        };
+        reader.readAsText(myFile)
+      }
+    }
+
+    return false;
+  }
+
+$(function() {
+  $('body').bind('dragenter', ignoreDrag).bind('dragover', ignoreDrag).
+    bind('drop', drop );
+  $("#check").click(function() {
+    extractStrings($("#xml").val());
+  });
+
+});
+</script>
+</head>
+<body>
+<div class="segment">
+  Original XIB XML<br />
+  <textarea id="xml"></textarea>
+</div>
+<div style="float:none;clear:both"></div>
+<input type="button" id="check" value="Check" />
+<div style="float:none;clear:both"></div>
+<div class="segment">
+  Strings Decleration<br />
+  <textarea id="strings" ></textarea>
+</div>
+</body>
+</html>

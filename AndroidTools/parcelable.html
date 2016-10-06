@@ -1,0 +1,257 @@
+<html>
+<head>
+<style type="text/css">
+div.segment {float:left}
+div.segment > textarea {width:320px;height:240px;}
+</style>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/template" id="parcel_describe">
+    /**** PARCELABLE. ****/
+    @Override
+    public final int describeContents() {
+        return 0;
+    }
+</script>
+<script type="text/template" id="parcel_write">
+    @Override
+    public final void writeToParcel(Parcel dest, int flags) {
+        sanitize();
+        <%content%>
+    }
+</script>
+<script type="text/template" id="parcel_read">
+    public static <%class%> readFromParcel(Parcel in) {
+        <%class%> result = new <%class%>();
+        <%content%>
+        result.sanitize();
+        return result;
+    }
+</script>
+<script type="text/template" id="parcel_creator">
+    public static final Parcelable.Creator<<%class%>> CREATOR = new Parcelable.Creator<<%class%>>() {
+        public <%class%> createFromParcel(Parcel in) {
+            return <%class%>.readFromParcel(in);
+        }
+
+        public <%class%>[] newArray(int size) {
+            return new <%class%>[size];
+        }
+    };
+</script>
+<script type="text/template" id="sanatize">
+    @Override
+    public void sanitize() {
+    <%content%>
+    }
+</script>
+<script type="text/javascript">
+"use strict";
+function parseClass() {
+  var obj = {};
+  var src = $("#class").val();
+  var match;
+  if(match = (/class\s(\S+)(?:.+?)?\s*{([\s\S]+)}/).exec(src)) {
+    obj.name = match[1];
+    obj.inner = match[2];
+  } else {
+    alert("No Class Name or Inner Content Found");
+    return;
+  }
+  obj.inner = obj.inner.trim();
+  obj.lines = obj.inner.split(/\s*;\s*/);
+  obj.vars = [];
+  var isArray = /\[\]$/;
+  var isList = /List<(.+)>/;
+  var isBoolean = /(?:Boolean|boolean)/;
+  for(var i in obj.lines) {
+    var line = obj.lines[i];
+    if(match = (/(\S+)\s+(\S+)$/).exec(line)) {
+      var entry = {"type": match[1], "name": match[2]};
+      entry.isArray = isArray.test(entry.type)||isArray.test(entry.name);
+      entry.isList = isList.test(entry.type);
+      if(entry.isList) {
+        var t = isList.exec(entry.type);
+        entry.listType = t[1];
+      }
+      entry.isBoolean = isBoolean.test(entry.type);
+      obj.vars.push(entry);
+    }
+  }
+  console.log(obj);
+  generateParcelable(obj);
+}
+
+function createSerializedNames(variables) {
+  var serialized = "";
+  for(var i in variables) {
+    var v = variables[i];
+    var output = "";
+    if((/^[A-Z].+$/).test(v.name)) {
+      output += "    @SerializedName(\""+v.name+"\")\n";
+      v.name = "m"+v.name;
+    }
+    output += "    private "+v.type+" "+v.name+";\n";
+    serialized += output;
+  }
+  return serialized;
+}
+
+function typeLookup(type) {
+  if(type == "byte" || type == "Byte") {
+    return "Byte";
+  }
+  if(type == "double" || type == "Double") {
+    return "Double";
+  }
+  if(type == "float" || type == "Float") {
+    return "Float";
+  }
+  if(type == "int" || type == "Integer") {
+    return "Int";
+  }
+  if(type == "long" || type == "Long") {
+    return "Long";
+  }
+  if(type == "String") {
+    return "String";
+  }
+  return "Parcelable";
+}
+
+function getGenericType(type) {
+  var lookup = typeLookup(type);
+  if( lookup == "Byte" || lookup == "Double" || lookup == "Float" || lookup == "Int" || lookup == "Long") {
+    return "Number";
+  }
+  return lookup;
+}
+
+function writeArray(type, name) {
+  return "dest.writeInt("+name+".length);\n"+
+         "dest.writeTypedArray("+name+", flags);";
+}
+
+function writeList(type, name) {
+  return "dest.writeTypedList("+name+");";
+}
+
+function writeBoolean(name) {
+  return "dest.writeInt(Boolean.TRUE.equals("+name+") ? 1 : 0);";
+}
+
+function createWriter(template, variables) {
+  var writeVar = [];
+  for(var i in variables) {
+    var v = variables[i];
+    if(v.isList) {
+       writeVar.push(writeList(v.listType, v.name));
+    } else if(v.isArray) {
+      writeVar.push(writeArray(v.type, v.name));
+    } else if(v.isBoolean) {
+      writeVar.push(writeBoolean(v.name));
+    } else {
+      var type = typeLookup(v.type);
+      if(type == "Parcelable") {
+	writeVar.push("dest.write"+typeLookup(v.type)+"("+v.name+", flags);");
+      } else {
+        writeVar.push("dest.write"+typeLookup(v.type)+"("+v.name+");");
+      }
+    }
+  }
+  return template.replace("<%content%>",writeVar.join("\n        "));
+}
+
+function createGetterSetter(variables) {
+
+
+}
+
+function createSanatize(template, variables) {
+  var writeSanatize = [];
+  for(var i in variables) {
+    var v = variables[i];
+    var lookup = getGenericType(v.type);
+    if(lookup == 'String' || lookup == 'Number' ) {
+      var if_state = "if ("+v.name+" == null) {\n                "+
+        v.name+" = "+((v.type == "String")?'""':'0')+";\n        }";
+      writeSanatize.push(if_state);
+    }
+    if(v.isBoolean) {
+      var if_state = "if ("+v.name+" == null) {\n                "+
+        v.name+" = false;\n        }";
+      writeSanatize.push(if_state);
+    }
+  }
+  return template.replace("<%content%>",writeSanatize.join("\n        "));
+}
+
+function readList(type, name) {
+  return "result."+name+" = new ArrayList<"+type+">();\n"+
+         "in.readTypedList(result."+name+", "+type+".CREATOR);";
+}
+
+function readArray(type, name) {
+  return "result."+name+" = new "+type+"[in.readInt()];\n"+
+         "in.readTypedArray(result."+name+", "+type+".CREATOR);";
+}
+
+function readBoolean(name) {
+  return "result."+name+" = in.readInt() == 1;";
+}
+
+function createReader(template, className, variables) {
+  template = template.replace(/<%class%>/g,className,'g');
+  var readVar = [];
+  for(var i in variables) {
+    var v = variables[i];
+    if(v.isList) {
+      readVar.push(readList(v.listType, v.name));
+    } else if(v.isArray) {
+      readVar.push(readArray(v.type, v.name));
+    } else if(v.isBoolean) {
+      readVar.push(readBoolean(v.name));
+    } else {
+      var type = typeLookup(v.type);
+      if(type == "Parcelable") {
+        readVar.push("result."+v.name+" = in.readParcelable("+v.type+".class.getClassLoader());");
+      } else {
+        readVar.push("result."+v.name+" = in.read"+type+"();");
+      }
+    }
+  }
+  return template.replace("<%content%>",readVar.join("\n        "));
+}
+function createCreator(template, className) {
+  return template.replace(/<%class%>/g,className);
+}
+
+function generateParcelable(classObj) {
+  var sections = [];
+  sections.push(createSerializedNames(classObj.vars));
+  sections.push(createSanatize($('#sanatize').text(),classObj.vars));
+  sections.push(createGetterSetter(classObj.vars));
+  sections.push($("#parcel_describe").text());
+  sections.push(createWriter($("#parcel_write").text(),classObj.vars));
+  sections.push(createReader($("#parcel_read").text(),classObj.name,classObj.vars));
+  sections.push(createReader($("#parcel_creator").text(),classObj.name));
+  $("#parcel").val(sections.join("\n"));
+}
+$(function() {
+  $("#check").click(parseClass);
+});
+</script>
+</head>
+<body>
+<div class="segment">
+  Original Class (just local variables, no methods)<br />
+  <textarea id="class"></textarea>
+</div>
+<div style="float:none;clear:both"></div>
+<input type="button" id="check" value="Check" />
+<div style="float:none;clear:both"></div>
+<div class="segment">
+  Parcelable Decleration<br />
+  <textarea id="parcel" ></textarea>
+</div>
+</body>
+</html>

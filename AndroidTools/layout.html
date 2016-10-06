@@ -1,0 +1,227 @@
+<html>
+<head>
+<style type="text/css">
+table {
+	margin: 10px;
+	border: 1px solid red;
+}
+
+canvas {
+	cursor: crosshair
+}
+</style>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript">
+  "use strict";
+  (function() {
+    var baseImg = new Image();
+
+    function handleDataTransfer(data) {
+      if (data.items.length < 1 || data.items[0].kind != "file") {
+        return;
+      }
+      var blob = data.items[0].getAsFile();
+      if (baseImg.src != null) {
+        window.URL.revokeObjectURL(baseImg.src);
+      }
+      baseImg.onload = onBgLoaded;
+      baseImg.src = window.URL.createObjectURL(blob);
+    }
+
+    function paste(e) {
+      var data = e.originalEvent.clipboardData;
+      handleDataTransfer(data);
+    }
+
+    function ignoreDrag(e) {
+      e.originalEvent.stopPropagation();
+      e.originalEvent.preventDefault();
+      e.originalEvent.dataTransfer.dropEffect = 'copy';
+    }
+
+    function drop(e) {
+
+      ignoreDrag(e);
+      var data = e.originalEvent.dataTransfer;
+      handleDataTransfer(data);
+
+      return false;
+    }
+
+    var canvas, ctx;
+
+    function onBgLoaded() {
+      canvas.width = this.width;
+      canvas.height = this.height;
+      $("#img_width").text("" + this.width)
+      $("#img_height").text("" + this.height)
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseImg, 0, 0);
+    }
+
+    function drawSingleRect(rect, color) {
+      var x = Math.min(rect.x1, rect.x2);
+      var y = Math.min(rect.y1, rect.y2);
+      var w = Math.abs(rect.x2 - rect.x1);
+      var h = Math.abs(rect.y2 - rect.y1);
+
+      ctx.strokeStyle = color || "#FF0000";
+      ctx.strokeRect(x, y, w, h);
+    }
+
+    function drawAllRects() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(baseImg, 0, 0);
+      for ( var v in rects) {
+        var rect = rects[v];
+        drawSingleRect(rect);
+      }
+    }
+
+    function drawRect(rect) {
+
+      var x = Math.min(rect.x1, rect.x2);
+      var y = Math.min(rect.y1, rect.y2);
+      var w = Math.abs(rect.x2 - rect.x1);
+      var h = Math.abs(rect.y2 - rect.y1);
+
+      $("#rect_coord").text(rect.x1 + "x" + rect.y1 + " - " + rect.x2 + "x" + rect.y2);
+      $("#rect_dimen").text(w + "x" + h);
+      $("#img_width").text("" + baseImg.width)
+      $("#img_height").text("" + baseImg.height);
+
+      drawSingleRect(rect);
+    }
+
+    var rects = {};
+
+    var tmpDrawObj;
+
+    function getOffsetXY(e) {
+      var parent = $(canvas).parent();
+      var parentOffset = parent.offset();
+      //or $(this).offset(); if you really just want the current element's offset
+      var relX = e.pageX - parentOffset.left + parent.scrollLeft();
+      var relY = e.pageY - parentOffset.top + parent.scrollTop();
+      return {
+        x : parseInt(relX),
+        y : parseInt(relY)
+      };
+    }
+
+    function handleDrawObj(obj) {
+      if (obj == null) {
+        return;
+      }
+      var timestamp = (new Date()).getTime();
+      rects[timestamp] = obj;
+      var newBox = $("#output_table").clone();
+      newBox.find('*').attr('id', null);
+      newBox.data('id', timestamp);
+      var delEntry = $("<tr><td>Delete</td></tr>");
+      var delButton = $("<td><input type='button' value='Delete' /></td>");
+      delButton.find('input').click(function() {
+        newBox.remove("*");
+        delete rects[timestamp];
+        drawAllRects();
+      });
+      newBox.mouseover(function() {
+        drawSingleRect(rects[timestamp], "#00FF00")
+      }).mouseleave(function() {
+        drawAllRects();
+      })
+      delEntry.append(delButton);
+      newBox.find('tbody').append(delEntry);
+      newBox.find('tbody').prepend("<tr><td>Name</td><td><input /></td></tr>")
+      $("#boxes").append(newBox);
+
+      drawAllRects();
+    }
+
+    function mouseDown(e) {
+      var o = getOffsetXY(e);
+      if (e.originalEvent.button == 0) {
+        tmpDrawObj = {
+          x1 : o.x,
+          y1 : o.y,
+          x2 : o.x,
+          y2 : o.y
+        };
+      }
+      if (e.originalEvent.button == 1) {
+        var d = ctx.getImageData(o.x, o.y, 1, 1).data;
+        var rgba = d[2] | (d[1] << 8) | (d[0] << 16);
+        rgba &= 0xFFFFFF;
+        rgba = "#" + ("000000" + rgba.toString(16)).substr(-6);
+        $("#img_rgb_block").css('background-color', rgba);
+        $("#img_rgb").text(rgba);
+      }
+    }
+    function mouseMove(e) {
+      if (tmpDrawObj == null) {
+        return;
+      }
+      var o = getOffsetXY(e);
+      tmpDrawObj.x2 = o.x;
+      tmpDrawObj.y2 = o.y;
+
+      drawAllRects();
+      drawRect(tmpDrawObj);
+    }
+    function mouseUp(e) {
+      if (tmpDrawObj == null) {
+        return;
+      }
+      if (tmpDrawObj.x1 != tmpDrawObj.x2 && tmpDrawObj.y1 != tmpDrawObj.y2) {
+        handleDrawObj(tmpDrawObj);
+      }
+      tmpDrawObj = null;
+    }
+
+    $(function() {
+      canvas = $("#canvas").get(0);
+      ctx = canvas.getContext("2d");
+
+      $(canvas).mousedown(mouseDown).mousemove(mouseMove).mouseleave(mouseUp).mouseup(mouseUp);
+
+      $('body').bind('paste', paste);
+      $('body').bind('dragenter', ignoreDrag).bind('dragover', ignoreDrag).bind('drop', drop);
+    });
+  })();
+</script>
+</head>
+<body>
+	<div
+		style="width: 1024px; height: 768px; overflow: scroll; float: left;">
+		<canvas id="canvas" width="100%" height="100%"></canvas>
+	</div>
+	<div style="float: left; clear: right" id="boxes">
+		<table>
+			<tr>
+				<td>Width</td>
+				<td><span id='img_width'></span></td>
+			</tr>
+			<tr>
+				<td>Height</td>
+				<td><span id='img_height'></span></td>
+			</tr>
+			<tr>
+				<td>Color Sample</td>
+				<td><span id='img_rgb' style='float: left;'></span>
+				<div id='img_rgb_block'
+						style='float: left; border: 1px solid black; width: 20px; height: 20px'></div></td>
+			</tr>
+		</table>
+		<table id="output_table">
+			<tr>
+				<td>Coord XY</td>
+				<td><span id='rect_coord'></span></td>
+			</tr>
+			<tr>
+				<td>Dimen XY</td>
+				<td><span id='rect_dimen'></span></td>
+			</tr>
+		</table>
+	</div>
+</body>
+</html>

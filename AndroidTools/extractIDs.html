@@ -1,0 +1,159 @@
+<html>
+<head>
+<style type="text/css">
+div.segment {float:left}
+div.segment > textarea {width:320px;height:240px;}
+</style>
+<script type="text/javascript" src="../js/jquery.js"></script>
+<script type="text/javascript">
+  var variables = [];
+  var findById = [];
+  var string_extract = [];
+  var on_click_id = [];
+  var view_holder = [];
+  var filename = "";
+
+  function extractIDs( XML ) {
+    variables = [];
+    findById = [];
+    string_extract = [];
+    on_click_id = [];
+    view_holder = [];
+    filename = filename.replace(/\.xml/,"").toLowerCase();
+    var parser=new DOMParser();
+    var xmlDoc=parser.parseFromString(XML,"text/xml");
+    recurseChildren(xmlDoc.childNodes[0]);
+    $("#variables").val(variables.join("\n"));
+    $("#findById").val(findById.join("\n"));
+    $("#string_extract").val(string_extract.join("\n"));
+
+    if(on_click_id.length >0) {
+      var setOnClick = "";
+      var onClickSwitch = "switch(v.getId()) {+\n";
+      for(var i in on_click_id) {
+        var id = on_click_id[i];
+        setOnClick += id+".setOnClickListener(this);\n";
+        onClickSwitch += "\tcase R.id."+id+":\n\t\t//TODO\n\t\tbreak;\n";
+      }
+      onClickSwitch += "}";
+      $("#set_click_listener").val(setOnClick);
+      $("#on_click_switch").val(onClickSwitch);
+    } else {
+      $("#set_click_listener").val("");
+      $("#on_click_switch").val("");
+    }
+    $("#view_holder").val("private class ViewHolder {\n\t"+variables.join("\n\t")+"\n\tpublic ViewHolder(View view) {\n\t\t"+view_holder.join("\n\t\t")+"\n\t}\n}");
+  }
+
+  function recurseChildren(node) {
+    if(node.localName == null) return;
+    var type  = node.localName;
+    var androidID = node.getAttribute("android:id");
+    if(androidID != null) {
+      androidID = androidID.replace(/@\+?id\//,"");
+    }
+    if(androidID && (type == "Button" || node.getAttribute("android:clickable") == "true")) {
+      on_click_id.push(androidID);
+    }
+    var text = node.getAttribute("android:text");
+    if(text != null && !(/^@.*string\//).exec(text)) {
+      var string_name;
+      if(androidID != null) {
+        string_name = filename+"_"+androidID;
+      } else {
+        string_name = filename+"_"+string_extract.length;
+      }
+      string_extract.push('<string name="'+string_name+'">'+text+'</string>');
+    }
+    var hint = node.getAttribute("android:hint");
+    if(hint != null && !(/^@.*string\//).exec(hint)) {
+      var string_name;
+      if(androidID != null) {
+        string_name = filename+"_"+androidID;
+      } else {
+        string_name = filename+"_"+string_extract.length;
+      }
+      string_extract.push('<string name="'+string_name+'_hint">'+hint+'</string>');
+    }
+
+    if(type && androidID) {
+      variables.push("private "+type+" "+androidID+";");
+      findById.push(androidID+" = ("+type+") findViewById(R.id."+androidID+");");
+      view_holder.push("this."+androidID+" = ("+type+") view.findViewById(R.id."+androidID+");");
+    }
+    for(var i = 0; i<node.childNodes.length; i++) {
+      recurseChildren(node.childNodes[i]);
+    }
+  }
+
+  function ignoreDrag(e) {
+    e.originalEvent.stopPropagation();
+    e.originalEvent.preventDefault();
+    e.originalEvent.dataTransfer.dropEffect = 'copy';
+  }
+
+  function drop (e) {
+  
+    ignoreDrag(e);
+    var dt = e.originalEvent.dataTransfer;
+    if(dt && dt.items) {
+      var items = dt.files;
+      for(var i=0;i<items.length;i++) {
+        var myFile = items[0];
+        var reader = new FileReader();
+        filename = myFile.name;
+        reader.onload = function(e){
+            $("#xml").val(e.target.result);
+        extractIDs($("#xml").val());
+        };
+        reader.readAsText(myFile)
+      }
+    }
+
+    return false;
+  }
+
+$(function() {
+  $('body').bind('dragenter', ignoreDrag).bind('dragover', ignoreDrag).
+    bind('drop', drop );
+  $("#check").click(function() {
+    extractIDs($("#xml").val());
+  });
+
+});
+</script>
+</head>
+<body>
+<div class="segment">
+  Original XML<br />
+  <textarea id="xml"></textarea>
+</div>
+<div style="float:none;clear:both"></div>
+<input type="button" id="check" value="Check" />
+<div style="float:none;clear:both"></div>
+<div class="segment">
+  Variable Decleration<br />
+  <textarea id="variables" ></textarea>
+</div>
+<div class="segment">
+  Find By ID<br />
+  <textarea id="findById" ></textarea>
+</div>
+<div class="segment">
+  String Extracts<br />
+  <textarea id="string_extract" ></textarea>
+</div>
+<div class="segment">
+  Set Click Listeners<br />
+  <textarea id="set_click_listener" ></textarea>
+</div>
+<div class="segment">
+  On Click Switch<br />
+  <textarea id="on_click_switch" ></textarea>
+</div>
+<div class="segment">
+  ViewHolder<br />
+  <textarea id="view_holder" ></textarea>
+</div>
+</body>
+</html>
