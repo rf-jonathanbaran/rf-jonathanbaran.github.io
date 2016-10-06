@@ -78,6 +78,10 @@ requirejs(["blob/util", "pkcs"],function(blobUtil, pkcs) {
       return resp;
   }
 
+  function parseResourceMapping(chunk) {
+
+  }
+
   function parseStringPool(chunk) {
     var poolHeader = {
       stringCount: chunk.header.getInt32(8+0, true),
@@ -131,7 +135,7 @@ requirejs(["blob/util", "pkcs"],function(blobUtil, pkcs) {
           parseStringPool(c);
         }
         break;
-        case RES_XML_RESOURCE_MAP_TYPE: {
+        case CHUNK_TYPES.RES_XML_RESOURCE_MAP_TYPE: {
           parseResourceMapping(c);
         }
       }
