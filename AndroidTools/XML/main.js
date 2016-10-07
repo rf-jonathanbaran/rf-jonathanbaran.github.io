@@ -77,9 +77,71 @@ requirejs(["blob/util", "pkcs"],function(blobUtil, pkcs) {
       }
       return resp;
   }
-
+  function getStringEntry(index) {
+    var entry = stringPool[index];
+    if(entry) {
+      entry = entry.value;
+    }
+    return entry;
+  }
   function parseResourceMapping(chunk) {
 
+  }
+  function parseStartNameSpace(chunk) {
+    var resp = {};
+    resp.prefix = getStringEntry(chunk.data.getInt32(0, true));
+    resp.url = getStringEntry(chunk.data.getInt32(4, true));
+    return resp;
+  }
+  function parseEndNameSpace(chunk) {
+    var resp = {};
+    resp.prefix = getStringEntry(chunk.data.getInt32(0, true));
+    resp.url = getStringEntry(chunk.data.getInt32(4, true));
+    return resp;
+  }
+  function parseElementAttributeData(buffer, offset) {
+    var resp = {};
+    resp.size = buffer.getInt16(offset+0, true);
+    resp.zero = buffer.getInt8(offset+2);
+    resp.dataType = buffer.getInt8(offset+3);
+    resp.data = new DataView(buffer.buffer,buffer.byteOffset+offset+4,resp.size-4);
+    return resp;
+  }
+  function parseElementAttribute(buffer, offset) {
+    var resp = {};
+    resp.ns = getStringEntry(buffer.getInt32(offset+0, true));
+    resp.name = getStringEntry(buffer.getInt32(offset+4, true));
+    resp.rawValue = buffer.getInt32(offset+8, true);
+    if(resp.rawValue != -1) {
+      resp.rawValue = getStringEntry(resp.rawValue);
+    }
+    resp.data = parseElementAttributeData(buffer, offset+12);
+    return { val: resp, offset: offset+12+resp.data.size};
+  }
+
+  function parseStartElementType(chunk) {
+    var resp = {};
+    resp.ns = getStringEntry(chunk.data.getInt32(0, true));
+    resp.name = getStringEntry(chunk.data.getInt32(4, true));
+    resp.attributeSize = chunk.data.getUint16(10, true);
+    resp.attributeCount = chunk.data.getUint16(12, true);
+    resp.idIndex = chunk.data.getUint16(14, true);
+    resp.classIndex = chunk.data.getUint16(16, true);
+    resp.styleIndex = chunk.data.getUint16(18, true);
+    resp.attr = {};
+    var offset = 20;
+    for(var i=0;i<resp.attributeCount;i++) {
+      var entry = parseElementAttribute(chunk.data, offset);
+      resp.attr[entry.val.name] = entry.val;
+      offset = entry.offset;
+    }
+    return resp;
+  }
+  function parseEndElementType(chunk) {
+    var resp = {};
+    resp.ns = getStringEntry(chunk.data.getInt32(0, true));
+    resp.name = getStringEntry(chunk.data.getInt32(4, true));
+    return resp;
   }
 
   function parseStringPool(chunk) {
@@ -137,6 +199,30 @@ requirejs(["blob/util", "pkcs"],function(blobUtil, pkcs) {
         break;
         case CHUNK_TYPES.RES_XML_RESOURCE_MAP_TYPE: {
           parseResourceMapping(c);
+        }
+        break;
+        case CHUNK_TYPES.RES_XML_START_NAMESPACE_TYPE: {
+          parseStartNameSpace(c);
+        }
+        break;
+        case CHUNK_TYPES.RES_XML_START_ELEMENT_TYPE: {
+          var ele = parseStartElementType(c);
+          if(ele.name == "manifest") {
+            var log = "Build:<br/>"+
+              "Package: "+ele.attr.package.rawValue+"<br />"+
+              "Version Name: "+ele.attr.versionName.rawValue+"<br />"+
+              "Version Code: "+ele.attr.versionCode.data.data.getUint32(0,true)+"<hr />";
+            var out = document.getElementById("out");
+            out.innerHTML = log + out.innerHTML;
+          }
+        }
+        break;
+        case CHUNK_TYPES.RES_XML_END_NAMESPACE_TYPE: {
+          parseEndNameSpace(c);
+        }
+        break;
+        case CHUNK_TYPES.RES_XML_End_ELEMENT_TYPE: {
+          parseEndElementType(c);
         }
       }
     });
