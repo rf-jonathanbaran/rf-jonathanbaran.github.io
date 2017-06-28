@@ -21,9 +21,11 @@
   var video = document.getElementById('monitor');
   function gotStream(stream) {
     console.log(stream.getVideoTracks().length);
-    video.src = stream;
+    video.srcObject = stream;
     video.onerror = function () {
-      stream.stop();
+      if (stream) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+      }
     };
     stream.onended = noStream;
     document.getElementById('splash').hidden = true;
