@@ -1,0 +1,36 @@
+<html><body>
+<style scoped>
+  video { transform: scaleX(-1); }
+  p { text-align: center; }
+ </style>
+ <section id="splash">
+  <p id="errorMessage">Loading...</p>
+ </section>
+ <section id="app" hidden>
+  <p><video id="monitor" autoplay style="width:320px;height:240px"></video>
+ </section>
+ <script type="text/javascript">
+  if(navigator.getUserMedia == null && navigator.webkitGetUserMedia !=null)
+    navigator.getUserMedia = navigator.webkitGetUserMedia;
+  if(navigator.getUserMedia == null && navigator.mozGetUserMedia !=null)
+    navigator.getUserMedia = navigator.mozGetUserMedia;
+	
+  if(window.URL == null && window.webkitURL !=null)
+    window.URL = window.webkitURL;   
+  navigator.getUserMedia({video:true}, gotStream, noStream);
+  var video = document.getElementById('monitor');
+  function gotStream(stream) {
+    console.log(stream.getVideoTracks().length);
+    video.src = stream;
+    video.onerror = function () {
+      stream.stop();
+    };
+    stream.onended = noStream;
+    document.getElementById('splash').hidden = true;
+    document.getElementById('app').hidden = false;
+  }
+  function noStream() {
+    document.getElementById('errorMessage').textContent = 'No camera available.';
+  }
+
+ </script><body></html>
