@@ -19,6 +19,9 @@
     window.URL = window.webkitURL;   
   navigator.getUserMedia({video:true}, gotStream, noStream);
   var video = document.getElementById('monitor');
+  video.onclick = function() {
+    video.play();
+  }
   function gotStream(stream) {
     console.log(stream.getVideoTracks().length);
     video.srcObject = stream;
